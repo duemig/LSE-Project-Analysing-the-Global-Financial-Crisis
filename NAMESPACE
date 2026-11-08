@@ -1,0 +1,2 @@
+# Export every function defined in R/ (names not starting with a dot).
+exportPattern("^[^.]")

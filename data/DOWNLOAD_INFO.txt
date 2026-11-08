@@ -1,0 +1,10 @@
+Source: Yahoo Finance (via quantmod::getSymbols, src = 'yahoo')
+Downloaded: 2026-11-08
+Range requested: 2004-01-01 to 2010-12-31
+Tickers: KO, XOM, GE, JNJ, DIS, JPM, INTC, MS, C, GS
+
+prices_public.csv      split- and dividend-adjusted close (total-return basis).
+prices_public_close.csv split-adjusted close, not dividend-adjusted.
+
+Citigroup trades under ticker C. Adjusted levels reflect its 2011 reverse
+split, which does not affect daily returns.

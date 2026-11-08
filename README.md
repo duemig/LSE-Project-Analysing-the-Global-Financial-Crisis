@@ -1,59 +1,67 @@
 # Market risk of ten S&P 500 stocks before and during the 2007-09 crisis
 
-Course project in risk management, London School of Economics, summer 2018.
-Report: [LSE Project Report.pdf](LSE%20Project%20Report.pdf). Code: [LSE Project.R](LSE%20Project.R).
+How well did standard value-at-risk models, estimated on the calm period before the financial crisis, describe the risk that followed, and how did the dependence between bank stocks change? This project measures the market risk of an equal-weight, buy-and-hold portfolio of ten S&P 500 stocks, compares five VaR models through the crisis, and fits copulas to the dependence between the four financials. It began as a course project in risk management at the London School of Economics and has since been extended.
 
-## Question
-
-How well did standard value-at-risk models, estimated on the calm period before the financial crisis, describe the risk that followed? And how did the dependence between bank stocks change?
+The report is [LSE Project Report.pdf](LSE%20Project%20Report.pdf) (also [as Word](LSE%20Project%20Report.docx)). Every number, table and figure in it is produced by the code here, from public data.
 
 ## Data and portfolio
 
 | Item | Detail |
 |---|---|
-| Stocks | Coca-Cola, ExxonMobil, General Electric, Johnson & Johnson, Disney, Intel and four financials (Citigroup, Goldman Sachs, Morgan Stanley and one further bank; see limitations) |
-| Prices | Daily, 1 July 2006 to 30 June 2009, from `stocks.csv` (not included; source not recorded) |
-| Portfolio | $1,000 in each stock at the start, then buy and hold |
+| Stocks | Coca-Cola, ExxonMobil, General Electric, Johnson & Johnson, Disney, Intel, and four financials: JPMorgan Chase, Citigroup, Morgan Stanley, Goldman Sachs |
+| Prices | Daily split-adjusted closes, 2004 to 2010, from Yahoo Finance via `quantmod`; cached in `data/` with the download date |
+| Portfolio | Equal amounts in each stock on 3 July 2006, then buy and hold to 30 June 2009 |
 | Estimation window | 1 July 2006 to 31 December 2007 |
 | Backtest window | 1 January 2008 to 30 June 2009 (377 trading days) |
 
+The portfolio was first built from a private price file that keyed stocks on CRSP identifiers. One financial was mislabelled in the original code; matching its price path against the public series identifies it as JPMorgan Chase, which is the label used here. The public prices reproduce the original pre-crisis VaR to the digit, so the study reads the same on the data anyone can download.
+
 ## Method
 
-- **Value at risk and expected shortfall** of daily portfolio returns at the 95% level, both historical and Gaussian, estimated once on the pre-crisis window (`PerformanceAnalytics`).
-- **Backtest:** count the days in the crisis window on which the portfolio loss exceeded the pre-crisis VaR.
-- **Correlation:** compare return correlation matrices before and during the crisis.
-- **Copulas:** fit t, Gaussian and Clayton copulas to the pseudo-observations (ranks) of the four financial stocks' returns (`QRM`) and compare maximised log-likelihoods.
+- **Static VaR and ES** at 95% on the pre-crisis window, by historical simulation and under a normal model, then backtested unchanged through the crisis.
+- **Rolling VaR and ES** at 95% and 99% on a 250-day window, re-estimated daily by five methods: historical simulation, normal, EWMA (RiskMetrics), GARCH(1,1) with Student-t innovations, and filtered historical simulation.
+- **Backtests:** Kupiec unconditional coverage, Christoffersen independence and conditional coverage, the Basel traffic light for the 99% VaR, and a McNeil-Frey test of the expected shortfall.
+- **Stressed VaR** on the worst twelve-month window, against the pre-crisis level.
+- **Dependence:** t, Gaussian, Clayton and Gumbel copulas fitted to the GARCH-standardised residuals of the four financials, before and during the crisis, with log-likelihood, AIC and tail-dependence coefficients; a rolling correlation; and the portfolio VaR against the sum of the stand-alone VaRs.
 
 ## Results
 
-| Measure (95%, daily) | Historical | Gaussian |
+A VaR estimated once on the calm pre-crisis window badly understated the risk of the crisis.
+
+| Measure (95%, daily) | Historical | Normal |
 |---|---|---|
 | VaR, pre-crisis | 1.61% | 1.66% |
-| Expected shortfall, pre-crisis | 2.50% | 2.08% |
-| VaR violations in the crisis window | 86 of 377 (22.8%) | 83 of 377 (22.0%) |
-| Expected violations | about 19 (5%) | about 19 (5%) |
+| Expected shortfall, pre-crisis | 2.51% | 2.09% |
+| VaR exceptions in the crisis window | 86 of 377 (22.8%) | 83 of 377 (22.0%) |
+| Expected exceptions | about 19 (5%) | about 19 (5%) |
 
-A Kupiec proportion-of-failures test rejects the historical VaR decisively (likelihood ratio 140, p < 1e-30). This test was computed for this README and is not in the original report.
+Re-estimating volatility every day cut the exceptions by about half. At 99%, where about 5 exceptions were expected over the 503-day evaluation period, the counts were 19 (historical), 23 (normal), 12 (EWMA), 11 (GARCH(1,1)-t) and 14 (filtered historical simulation). The historical and normal VaR reached the Basel red zone during the crisis; the dynamic models stayed in the yellow zone. No model passed the Kupiec and Christoffersen tests cleanly. The stressed 95% VaR, 5.71%, is about 3.5 times the pre-crisis figure.
 
-| Copula (four financials) | t | Gaussian | Clayton |
-|---|---|---|---|
-| Maximised log-likelihood | 1,802.0 | 1,009.5 | 874.3 |
-
-The t copula fits far better. It has only one more parameter than the Gaussian copula, so the gap cannot be explained by model size. The dependence between the bank stocks is strongest in the joint tails, which is exactly what a correlation matrix or a Gaussian model misses.
-
-## Takeaways
-
-- With the VaR estimated on a low-volatility window, losses in the crisis exceeded it more than four times as often as the model allows. This is the problem that led to stressed VaR under Basel 2.5.
-- Correlations between the stocks rose sharply during the crisis, which reduced the benefit of diversification when it was needed most.
-- Tail dependence among the financials argues for t or other heavy-tailed copulas in portfolio risk models.
-
-## Limitations
-
-- The VaR is static. It is estimated once and never updated, which is the point of the exercise but not how a risk system works. A rolling or GARCH-filtered VaR would be the natural comparison.
-- The copulas are fitted to raw return ranks, not to residuals after removing volatility clustering.
-- Ticker labels in the code are inconsistent: one price column is named JPM while the return columns and the report refer to Wells Fargo. The fourth financial is therefore ambiguous.
-- The price file is not included, so the script cannot be re-run from this repository.
+The average pairwise correlation across the ten stocks rose from 0.48 before the crisis to 0.56 during it, so the portfolio's undiversifiable risk grew when diversification was most wanted. The t copula fits the dependence between the financials best in both periods, and its advantage widens in the crisis (log-likelihood 642.6 against 588.8 for the Gaussian copula). Its fitted degrees of freedom fall from 6.7 to 5.1 and its tail-dependence coefficient rises to 0.42: the banks' losses arrived together, in the joint tail that a correlation matrix or a Gaussian model cannot see.
 
 ## Reproducing
 
-R with packages `QRM`, `xts`, `PerformanceAnalytics`, `ggplot2` and `GGally`. Place `stocks.csv` (long format: ticker, date as YYYYMMDD, price) next to the script and update the `setwd()` path.
+The analysis runs in R. Install the packages in `DESCRIPTION` (`xts`, `zoo`, `PerformanceAnalytics`, `copula`, `ggplot2`, `GGally`, `scales`, and `quantmod` for the download; `rmarkdown` and `knitr` for the report). Then, from the repository root:
+
+```bash
+Rscript scripts/00_download_data.R   # refresh the cached public prices
+Rscript scripts/run_study.R          # write results/ and figures/
+Rscript tests/testthat.R             # run the tests
+Rscript scripts/build_report.R       # render the report to Word and PDF
+```
+
+The study reads the cached prices in `data/`, so it runs offline; re-run the download script to refresh them. Building the PDF needs LibreOffice for the Word-to-PDF step.
+
+## Repository layout
+
+```
+R/            functions: data, VaR/ES, backtests, copulas, analysis, plots
+tests/        testthat tests
+scripts/      download, run the study, build the report
+data/         cached public prices and the download date
+results/      every number the report cites, as CSV
+figures/      every figure, as PNG
+report/       report.Rmd and the Word style reference
+```
+
+Tests also run on every push through GitHub Actions (`.github/workflows/ci.yaml`).

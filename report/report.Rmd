@@ -1,0 +1,284 @@
+---
+title: "What happened during the 2007-09 financial crisis?"
+author: "David Duemig"
+output:
+  word_document:
+    reference_docx: reference.docx
+    toc: true
+    fig_caption: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      out.width = "100%", dpi = 150)
+results <- "../results"
+figures <- "../figures"
+read_results <- function(name) utils::read.csv(file.path(results, name),
+                                               stringsAsFactors = FALSE)
+kv <- read_results("key_numbers.csv")
+k <- stats::setNames(kv$value, kv$name)
+K <- function(name) k[[name]]
+num <- function(name) as.numeric(k[[name]])
+pct <- function(x, digits = 2) sprintf(paste0("%.", digits, "f%%"), 100 * as.numeric(x))
+fig <- function(name) knitr::include_graphics(file.path(figures, name))
+
+static <- read_results("static_var_es.csv")
+static_backtest <- read_results("static_backtest.csv")
+violations <- read_results("rolling_violations.csv")
+es_backtest <- read_results("es_backtest.csv")
+basel <- read_results("basel_99.csv")
+stressed <- read_results("stressed_var.csv")
+copulas_before <- read_results("copulas_before.csv")
+copulas_during <- read_results("copulas_during.csv")
+diversification <- read_results("diversification_windows.csv")
+correlation <- read_results("correlation_summary.csv")
+
+method_name <- c(historical = "Historical", normal = "Normal", ewma = "EWMA",
+                 garch_t = "GARCH(1,1)-t", fhs = "Filtered HS")
+copula_table <- function(frame) {
+  out <- data.frame(
+    Copula = frame$copula,
+    Parameters = frame$n_params,
+    `Log-likelihood` = round(frame$loglik, 1),
+    AIC = round(frame$aic, 1),
+    `Lower tail` = round(frame$lambda_lower, 3),
+    `Upper tail` = round(frame$lambda_upper, 3),
+    check.names = FALSE
+  )
+  out
+}
+fmt_p <- function(p) ifelse(is.na(p), "n/a",
+                            ifelse(p < 0.001, "< 0.001", sprintf("%.3f", p)))
+```
+
+# 1. Introduction
+
+The 2007-09 global financial crisis had far-reaching consequences for money and capital markets. The failure of large investment banks and a wave of mortgage defaults drove US equities down by more than half from their October 2007 peak to the March 2009 trough, and cross-correlations between stocks rose sharply. Equity market volatility, measured by the CBOE Volatility Index (VIX), rose almost tenfold, from about 9.6 in December 2006 to 89.5 in October 2008. This paper measures how the market risk of a small, representative portfolio of ten Standard and Poor's 500 (S&P 500) firms, financial and non-financial, behaved before and during the crisis. It asks a single practical question: how well did value-at-risk models estimated on the calm period before the crisis describe the risk that followed, and how did the dependence between the bank stocks change.
+
+The portfolio invests an equal amount in each of ten stocks on `r format(as.Date(K("study_start")), "%d %B %Y")` and holds them to `r format(as.Date(K("study_end")), "%d %B %Y")`. Six are non-financial (Coca-Cola, ExxonMobil, General Electric, Johnson & Johnson, Disney and Intel) and four are financial (JPMorgan Chase, Citigroup, Morgan Stanley and Goldman Sachs). Prices are daily split-adjusted closes from a public source (Yahoo Finance, retrieved `r format(as.Date(K("data_download_date")), "%d %B %Y")`), and every number and figure in this paper is produced by the code in the repository that accompanies it.
+
+# 2. Market Overview
+
+The S&P 500 is the most widely used benchmark for US equities, and its members serve well to study the risk of individual firms. The sample period spans both the bull market that ended in 2007 and the bear market that followed, so it shows the risk of these firms before and during the crisis. Graphs A and B show the price paths and the daily log returns of the ten stocks.
+
+```{r prices, fig.cap="Graph A: Stock prices"}
+fig("fig_prices.png")
+```
+
+```{r logreturns, fig.cap="Graph B: Daily log returns"}
+fig("fig_logreturns.png")
+```
+
+The return series make three dates stand out: 15 September 2008, October 2008, and, to a lesser degree, 14 March 2008.
+
+On 14 March 2008, news broke that Bear Stearns was seeking emergency short-term funding from JPMorgan and the New York Federal Reserve to avoid collapse. Bear was one of several systemically important firms with large exposure to collateralised debt obligations (CDOs), derivatives built on residential mortgage-backed securities (RMBS). Once house prices peaked in mid-2006 and began to fall, these assets lost value, and highly leveraged, poorly diversified banks were most at risk. As the securities fell, investors pulled their money, which amplified the losses. By the fourth quarter of 2007 Bear had announced its first loss in more than 80 years on a write-down of its subprime RMBS portfolio, which triggered a credit downgrade.
+
+Lehman Brothers filed for bankruptcy on 15 September 2008, the largest filing in history, and the S&P 500 fell 4.7% that day. Lehman had large exposure to the RMBS market and was leveraged about thirty to one, so a move of only a few percent in its assets was enough to wipe out its equity. Its failure signalled how much bad debt sat in the system, and nearly all stocks fell together once the news hit. In October 2008 a run on money market funds froze short-term corporate funding, which deepened the sell-off. Risk aversion rose, collateral demands increased, and illiquid assets were marked down, all feeding a broad crisis of confidence.
+
+# 3. Before the financial crisis
+
+This section measures the market risk of the portfolio over the pre-crisis window, `r format(as.Date("2006-07-01"), "%d %B %Y")` to `r format(as.Date("2007-12-31"), "%d %B %Y")`, using standard techniques. Value at risk (VaR) and expected shortfall (ES) are computed at the 95% level on daily portfolio returns, both by historical simulation and under a normal (Gaussian) model.
+
+Throughout this paper VaR and ES are reported as positive loss magnitudes. A 95% one-day VaR of 1.61% means that on about 5% of days the loss is expected to exceed 1.61% of portfolio value. The quantile of the return distribution that defines the VaR is itself negative, since it lies in the left tail; taking its negative gives the positive loss figure quoted here. Expected shortfall is the average loss on the days when the VaR is breached, so it is also a positive number and is at least as large as the VaR.
+
+```{r static-table}
+static_display <- data.frame(
+  `Measure (95%, daily)` = c("Value at risk", "Expected shortfall"),
+  Historical = c(pct(num("static_var_hist")), pct(num("static_es_hist"))),
+  Normal = c(pct(num("static_var_norm")), pct(num("static_es_norm"))),
+  check.names = FALSE
+)
+knitr::kable(static_display, caption = "Table 1: Pre-crisis VaR and ES at 95%.")
+```
+
+The historical VaR, the 5% quantile of the pre-crisis return distribution, is `r pct(num("static_var_hist"))`. The historical estimate makes no distributional assumption, so it reflects the fat tails in the data directly. The Gaussian estimate, `r pct(num("static_var_norm"))`, is close here because the pre-crisis window was calm, but it is the less reliable of the two precisely because daily equity returns have fatter tails than the normal distribution allows. A normal model puts too little probability on large losses and so tends to understate risk in the tail; the gap widens, and the Gaussian figure becomes an underestimate, once the return distribution departs materially from normality. The expected shortfall, the average loss beyond the VaR, is larger than the VaR under both methods, and larger under the historical method (`r pct(num("static_es_hist"))`) than under the normal (`r pct(num("static_es_norm"))`), which is the fat tail showing up again. Graph C shows the pre-crisis return distribution with the four measures marked.
+
+```{r distribution, fig.cap="Graph C: Pre-crisis return distribution with VaR and ES"}
+fig("fig_return_distribution.png")
+```
+
+# 4. During the financial crisis
+
+## 4.1 The static VaR in the crisis
+
+The simplest backtest applies the pre-crisis VaR, unchanged, to the crisis window `r format(as.Date("2008-01-01"), "%d %B %Y")` to `r format(as.Date("2009-06-30"), "%d %B %Y")` and counts the days on which the loss exceeded it. The 1996 Basel amendment frames this as counting exceptions: when the loss is larger than the VaR, an exception is recorded.
+
+```{r static-backtest-table}
+sb <- static_backtest
+sb_display <- data.frame(
+  VaR = c("Historical", "Normal"),
+  Violations = sb$violations,
+  `Violations (%)` = pct(sb$rate),
+  Expected = round(sb$expected, 0),
+  check.names = FALSE
+)
+knitr::kable(sb_display,
+             caption = sprintf("Table 2: Exceptions of the static 95%% VaR over %d crisis days.",
+                               num("static_backtest_n")))
+```
+
+Over `r num("static_backtest_n")` trading days the historical VaR was exceeded `r num("static_violations_hist")` times and the normal VaR `r num("static_violations_norm")` times, against about `r round(0.05 * num("static_backtest_n"))` expected at 95%. A Kupiec proportion-of-failures test rejects the historical VaR decisively (p < 0.001). The static VaR greatly understated the risk that followed. It was estimated on 2006-07 to 2007-12, a period of low volatility, which is the general problem the crisis exposed: market risk charges computed from a one-to-four year historical window on calm data were too low. Graph D shows the crisis losses against the static VaR, with the exceptions marked.
+
+```{r loss-static, fig.cap="Graph D: Daily loss against the static 95% VaR, exceptions marked"}
+fig("fig_loss_vs_var_static.png")
+```
+
+The correction that followed, known as Basel 2.5, added three parts: a stressed VaR, an incremental risk charge (IRC) and a comprehensive risk charge (CompRC) for positions exposed to credit correlations. Together they raised the market risk charge (MRC) banks had to hold:
+
+$$ MRC = MRC_{\text{Basel II}} + IRC + CompRC $$
+
+## 4.2 Rolling VaR and expected shortfall
+
+A static VaR is not how a risk system works. This section re-estimates VaR and ES every day on a rolling 250-day window, at the 95% and 99% levels, using five methods: historical simulation, a normal model, an exponentially weighted moving average (EWMA, the RiskMetrics scheme with decay 0.94), a GARCH(1,1) model with Student-t innovations, and filtered historical simulation (FHS), which rescales the GARCH-standardised residuals by the current volatility forecast. The rolling estimates are evaluated from `r format(as.Date(K("roll_eval_start")), "%d %B %Y")`, once a full window is available, to `r format(as.Date(K("roll_eval_end")), "%d %B %Y")`, which is `r num("roll_eval_n")` trading days.
+
+```{r rolling-var-99, fig.cap="Graph E: Rolling one-day 99% VaR by method"}
+fig("fig_rolling_var_99.png")
+```
+
+The historical and normal estimates react slowly: they rise only after large losses have entered the window, and they stay high long after volatility falls. The EWMA, GARCH and FHS estimates respond faster, rising ahead of the others into the autumn of 2008 and falling back sooner in 2009.
+
+```{r backtest-table}
+vt <- violations
+vt <- vt[order(vt$level, match(vt$method, names(method_name))), ]
+vt_display <- data.frame(
+  Level = paste0(vt$level, "%"),
+  Method = method_name[vt$method],
+  Violations = vt$violations,
+  Expected = round(vt$expected, 0),
+  `Rate (%)` = pct(vt$rate),
+  `Kupiec p` = fmt_p(vt$kupiec_p),
+  `Christoffersen CC p` = fmt_p(vt$christoffersen_cc_p),
+  check.names = FALSE, row.names = NULL
+)
+knitr::kable(vt_display,
+             caption = "Table 3: Rolling VaR exceptions and backtests. Kupiec is the unconditional coverage test; Christoffersen CC is the joint coverage-and-independence test.")
+```
+
+Every method was breached more often than its level allows. At 99%, where about `r round(num("roll99_expected"))` exceptions were expected, the normal model produced `r num("roll99_viol_normal")` and historical simulation `r num("roll99_viol_historical")`, while the GARCH(1,1)-t model (`r num("roll99_viol_garch_t")`) and EWMA (`r num("roll99_viol_ewma")`) came closest. The Kupiec and Christoffersen tests reject the slow methods at both levels; the GARCH and EWMA models are the least rejected. The lesson is not that the dynamic models passed, but that re-estimating volatility every day cut the number of exceptions by about half relative to a static or slowly updated VaR.
+
+## 4.3 The Basel traffic light
+
+The 1996 amendment also grades a 99% VaR by the number of exceptions in the most recent 250 days: zero to four is the green zone, five to nine the yellow zone, and ten or more the red zone, which carries the heaviest capital penalty. The table below gives the worst zone each method reached over the sample.
+
+```{r basel-table}
+basel_display <- data.frame(
+  Method = method_name[basel$method],
+  `Worst zone` = tools::toTitleCase(basel$worst_zone),
+  `Most exceptions in 250 days` = basel$max_exceptions,
+  check.names = FALSE, row.names = NULL
+)
+knitr::kable(basel_display, caption = "Table 4: Basel traffic-light zones for the rolling 99% VaR.")
+```
+
+```{r basel-fig, fig.cap="Graph F: Exceptions of the historical 99% VaR in trailing 250-day windows"}
+fig("fig_basel_99.png")
+```
+
+The historical and normal VaR both reached the red zone during the crisis; the dynamic models stayed in the yellow zone. A bank using the slow methods would have faced the maximum multiplier on its market risk charge at the worst possible time.
+
+## 4.4 Stressed VaR
+
+Basel 2.5 requires a stressed VaR, calibrated to a twelve-month period of significant stress rather than to recent data. Taking the worst rolling one-year window in the sample, the 95% historical VaR rises to `r pct(num("stressed_var_95"))`, against the pre-crisis `r pct(num("static_var_hist"))`, a factor of about `r sprintf("%.1f", num("stressed_ratio_95"))`. The stressed window runs from `r format(as.Date(K("stressed_window_start")), "%d %B %Y")` to `r format(as.Date(K("stressed_window_end")), "%d %B %Y")`. A charge calibrated this way would have held far more capital against the same positions.
+
+```{r stressed-fig, fig.cap="Graph G: Rolling one-year 95% VaR, with the pre-crisis level marked"}
+fig("fig_stressed_var.png")
+```
+
+## 4.5 Expected-shortfall backtest
+
+Expected shortfall is harder to backtest than VaR because it depends on the shape of the tail beyond the VaR. A McNeil-Frey bootstrap test checks whether, on the days the VaR was breached, the realised loss matched the forecast ES. At 95% the normal model is rejected (p = `r fmt_p(es_backtest$p_value[es_backtest$level=="95" & es_backtest$method=="normal"])`): its ES was too low. The GARCH(1,1)-t ES is not rejected and is in fact conservative, because the Student-t tail is wide enough to cover the realised losses. This matches the VaR results: the models that track volatility and allow for fat tails describe the crisis tail far better than a normal model does.
+
+## 4.6 Correlations and diversification
+
+Less often emphasised is what the crisis did to correlations. The average pairwise correlation across the ten stocks rose from `r sprintf("%.2f", num("avg_corr_all_before"))` before the crisis to `r sprintf("%.2f", num("avg_corr_all_during"))` during it, as nearly all risky assets began to move together. Graphs H and I show the correlation matrices of the log returns before and during the crisis, and Graph J shows the average pairwise correlation on a rolling basis.
+
+```{r corr-before, fig.cap="Graph H: Correlation matrix, pre-crisis"}
+fig("fig_corr_before.png")
+```
+
+```{r corr-during, fig.cap="Graph I: Correlation matrix, crisis"}
+fig("fig_corr_during.png")
+```
+
+```{r roll-corr, fig.cap="Graph J: Rolling 60-day average correlation of the financial stocks"}
+fig("fig_rolling_correlation.png")
+```
+
+Rising correlations cut the benefit of diversification when it is needed most. Graph K compares the portfolio VaR with the sum of the stand-alone VaRs of its components; the gap between them is the diversification benefit. In absolute terms the portfolio's own VaR roughly tripled from the calm period to the crisis. The ratio of portfolio VaR to summed stand-alone VaR held at about two-thirds in both periods, so the portfolio still spread single-name risk; the point is that the level of risk it could not diversify away rose sharply, exactly as correlations rose.
+
+```{r diversification-fig, fig.cap="Graph K: Portfolio VaR against the sum of stand-alone VaRs"}
+fig("fig_diversification.png")
+```
+
+The two faces of VaR are worth setting out plainly.
+
+```{r drawbacks}
+drawbacks <- data.frame(
+  `Historical VaR` = c(
+    "Ignores the size of losses beyond the VaR.",
+    "Uses the past as a proxy for the future.",
+    "A short or calm window gives a poor estimate."),
+  `Normal VaR` = c(
+    "Assumes dependence is captured by a covariance matrix.",
+    "Assumes normally distributed value changes, often false.",
+    "Only suits positions with linear exposure to the risk factors."),
+  check.names = FALSE
+)
+knitr::kable(drawbacks, caption = "Table 5: Drawbacks of the two VaR methods.")
+```
+
+# 5. Copulas
+
+Correlation measures only linear, average co-movement. A copula describes the full dependence structure, including how strongly variables move together in the tails, which is what matters in a crisis. This section fits four copulas, the t, Gaussian, Clayton and Gumbel, to the dependence between the four financial stocks. To separate dependence from each stock's own volatility, the returns are first filtered with a GARCH(1,1)-t model and the copulas are fitted to the standardised residuals. The fit is repeated on the pre-crisis and crisis windows. Graph L shows the pseudo-observations of the four financials in the crisis window; the points cluster in the corners, which is tail dependence.
+
+```{r pairs, fig.cap="Graph L: Dependence of the financial stocks (crisis window)"}
+fig("fig_financial_pairs.png")
+```
+
+```{r copula-before-table}
+knitr::kable(copula_table(copulas_before),
+             caption = "Table 6: Copula fits, pre-crisis. Lower and upper tail are the tail-dependence coefficients.")
+```
+
+```{r copula-during-table}
+knitr::kable(copula_table(copulas_during),
+             caption = "Table 7: Copula fits, crisis window.")
+```
+
+The t copula fits best in both periods, by log-likelihood and by AIC, and its advantage widens in the crisis. A t copula has only one more parameter than a Gaussian copula, so the gap is not explained by model size; it is the tail dependence that the Gaussian copula cannot represent. The fitted degrees of freedom of the t copula fall from `r sprintf("%.1f", num("copula_df_t_before"))` before the crisis to `r sprintf("%.1f", num("copula_df_t_during"))` during it, meaning heavier joint tails, and the estimated tail-dependence coefficient rises to `r sprintf("%.2f", num("copula_t_lambda_during"))`. The Clayton copula, which has lower-tail dependence only, also fits better than the Gaussian, which is consistent with the losses of these banks arriving together. The dependence between the financial stocks was strongest exactly where a correlation matrix or a Gaussian model is blind, in the joint lower tail.
+
+# 6. Conclusion
+
+A VaR estimated once on calm data failed to describe the risk of the crisis: the static 95% VaR was exceeded `r num("static_violations_hist")` times in `r num("static_backtest_n")` days, more than four times the rate it allows. Re-estimating volatility daily, with EWMA, a GARCH(1,1)-t model or filtered historical simulation, roughly halved the exceptions and kept the 99% VaR out of the Basel red zone, though no method passed cleanly. A stressed VaR calibrated to the worst year of the sample is about `r sprintf("%.1f", num("stressed_ratio_95"))` times the pre-crisis figure, which is the capital a backward-looking charge would have missed.
+
+The crisis also raised the average correlation between the stocks, from `r sprintf("%.2f", num("avg_corr_all_before"))` to `r sprintf("%.2f", num("avg_corr_all_during"))`, so the portfolio's undiversifiable risk grew when diversification was most wanted. The dependence among the financial stocks was heaviest in the joint lower tail, which the t copula captures and the Gaussian copula does not. For a portfolio of this kind, a risk model should update its volatility, allow for fat tails, and model tail dependence directly. Because the study covers one episode, its numbers should not be read as forecasts, but the direction of the results is the standard lesson of the crisis.
+
+# References
+
+Acerbi, C. and Szekely, B. (2014), "Backtesting expected shortfall", Risk, December.
+
+Ang, A. and Chen, J. (2002), "Asymmetric correlations of equity portfolios", Journal of Financial Economics, Vol. 63 No. 3, pp. 443-494.
+
+Basel Committee on Banking Supervision (1996), "Supervisory framework for the use of backtesting in conjunction with the internal models approach to market risk capital requirements", Bank for International Settlements.
+
+Basel Committee on Banking Supervision (2009), "Revisions to the Basel II market risk framework", Bank for International Settlements.
+
+Christoffersen, P. (1998), "Evaluating interval forecasts", International Economic Review, Vol. 39 No. 4, pp. 841-862.
+
+Kupiec, P. (1995), "Techniques for verifying the accuracy of risk measurement models", Journal of Derivatives, Vol. 3 No. 2, pp. 73-84.
+
+McNeil, A. and Frey, R. (2000), "Estimation of tail-related risk measures for heteroscedastic financial time series: an extreme value approach", Journal of Empirical Finance, Vol. 7 No. 3, pp. 271-300.
+
+# Appendix
+
+```{r cumret, fig.cap="Cumulative portfolio return over the sample"}
+fig("fig_cumulative_return.png")
+```
+
+```{r rolling-var-95, fig.cap="Rolling one-day 95% VaR by method"}
+fig("fig_rolling_var_95.png")
+```
+
+```{r loss-rolling, fig.cap="Daily loss against the rolling 99% historical VaR, exceptions marked"}
+fig("fig_loss_vs_var_rolling.png")
+```

@@ -1,0 +1,6 @@
+"method","final_zone","worst_zone","max_exceptions"
+"historical","yellow","red",13
+"normal","red","red",15
+"ewma","yellow","yellow",9
+"garch_t","yellow","yellow",9
+"fhs","yellow","red",11

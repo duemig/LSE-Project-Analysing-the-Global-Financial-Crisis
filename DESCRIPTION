@@ -1,0 +1,25 @@
+Package: gfcrisk
+Title: Market Risk of Ten S&P 500 Stocks Before and During the 2007-09 Crisis
+Version: 1.0.0
+Authors@R:
+    person("David", "Dümig", email = "41909992+duemig@users.noreply.github.com",
+           role = c("aut", "cre"))
+Description: Functions and scripts behind the study of value-at-risk, expected
+    shortfall and tail dependence for a portfolio of ten S&P 500 stocks across
+    the 2007-09 financial crisis. Provides static and rolling VaR and ES
+    estimators (historical, normal, EWMA, GARCH(1,1)-t, filtered historical
+    simulation), VaR and ES backtests, stressed VaR, and copula fits.
+Encoding: UTF-8
+Imports:
+    copula,
+    GGally,
+    ggplot2,
+    PerformanceAnalytics,
+    scales,
+    xts,
+    zoo
+Suggests:
+    knitr,
+    quantmod,
+    rmarkdown,
+    testthat (>= 3.0.0)
