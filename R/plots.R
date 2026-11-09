@@ -73,24 +73,27 @@ plot_return_panels <- function(returns) {
 }
 
 #' Pre-crisis return distribution with VaR and ES lines (Graph C).
+#'
+#' The four measures are close together, so they are drawn as coloured dashed
+#' lines with a legend rather than overlapping in-line labels.
 plot_return_distribution <- function(returns, measures) {
   frame <- data.frame(ret = as.numeric(returns))
+  levels <- c("VaR historical", "VaR normal", "ES historical", "ES normal")
   lines <- data.frame(
     value = -c(measures$var_hist, measures$var_norm, measures$es_hist,
                measures$es_norm),
-    label = c("VaR hist", "VaR normal", "ES hist", "ES normal"),
-    stringsAsFactors = FALSE
+    measure = factor(levels, levels = levels)
   )
+  palette <- c("VaR historical" = "#1b9e77", "VaR normal" = "#7570b3",
+               "ES historical" = "#d95f02", "ES normal" = "#e7298a")
   ggplot2::ggplot(frame, ggplot2::aes(ret)) +
-    ggplot2::geom_histogram(bins = 60, fill = "grey75", colour = "grey40",
+    ggplot2::geom_histogram(bins = 60, fill = "grey80", colour = "grey55",
                             linewidth = 0.2) +
-    ggplot2::geom_vline(data = lines, ggplot2::aes(xintercept = value),
-                        linetype = "dashed", linewidth = 0.4) +
-    ggplot2::geom_text(data = lines,
-                       ggplot2::aes(x = value, y = Inf, label = label),
-                       angle = 90, vjust = -0.3, hjust = 1.1, size = 2.8,
-                       colour = "grey30") +
-    ggplot2::labs(x = "Daily portfolio return", y = "Count") +
+    ggplot2::geom_vline(data = lines,
+                        ggplot2::aes(xintercept = value, colour = measure),
+                        linetype = "dashed", linewidth = 0.7) +
+    ggplot2::scale_colour_manual(values = palette) +
+    ggplot2::labs(x = "Daily portfolio return", y = "Count", colour = NULL) +
     study_theme()
 }
 
