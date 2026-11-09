@@ -1,5 +1,6 @@
 #!/usr/bin/env Rscript
-# Render the report from results/ and figures/ to Word and PDF. The table of
+# Render the report from results/ and figures/ to PDF. A Word file is produced in
+# a temporary folder as an intermediate (not kept in the repository). The table of
 # contents is a Word field, so the PDF is produced through LibreOffice with a
 # one-off macro that updates the field before export (a plain --convert-to leaves
 # the contents page blank). The macro runs in a throwaway profile, so the user's
@@ -21,7 +22,6 @@ get_script_dir <- function() {
 }
 
 repo <- normalizePath(file.path(get_script_dir(), ".."))
-final_docx <- file.path(repo, "LSE Project Report.docx")
 final_pdf <- file.path(repo, "LSE Project Report.pdf")
 
 work <- file.path(tempdir(), "report_build")
@@ -77,8 +77,6 @@ if (nzchar(soffice)) {
   }
 }
 
-file.copy(tmp_docx, final_docx, overwrite = TRUE)
-message("Wrote ", final_docx)
 if (file.exists(tmp_pdf)) {
   file.copy(tmp_pdf, final_pdf, overwrite = TRUE)
   message("Wrote ", final_pdf)

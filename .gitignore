@@ -3,3 +3,6 @@
 .RData
 .Rproj.user/
 *.Rproj
+
+# Built Word report is an intermediate only; the PDF is the published report.
+LSE Project Report.docx

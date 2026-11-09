@@ -2,7 +2,7 @@
 
 How well did standard value-at-risk models, estimated on the calm period before the financial crisis, describe the risk that followed, and how did the dependence between bank stocks change? This project measures the market risk of an equal-weight, buy-and-hold portfolio of ten S&P 500 stocks, compares five VaR models through the crisis, and fits copulas to the dependence between the four financials. It began as a course project in risk management at the London School of Economics and has since been extended.
 
-The report is [LSE Project Report.pdf](LSE%20Project%20Report.pdf) (also [as Word](LSE%20Project%20Report.docx)). Every number, table and figure in it is produced by the code here, from public data.
+The report is [LSE Project Report.pdf](LSE%20Project%20Report.pdf). Every number, table and figure in it is produced by the code here, from public data.
 
 ## Data and portfolio
 
