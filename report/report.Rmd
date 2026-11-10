@@ -225,11 +225,11 @@ fig("fig_corr_before.png")
 fig("fig_corr_during.png")
 ```
 
-```{r roll-corr, fig.cap="Graph J: Rolling 60-day average correlation of the financial stocks"}
+```{r roll-corr, fig.cap="Graph J: Rolling 60-day average correlation of the ten stocks"}
 fig("fig_rolling_correlation.png")
 ```
 
-Rising correlations cut the benefit of diversification when it is needed most. Graph K compares the portfolio VaR with the sum of the stand-alone VaRs of its components; the gap between them is the diversification benefit. In absolute terms the portfolio's own VaR roughly tripled from the calm period to the crisis. The ratio of portfolio VaR to summed stand-alone VaR held at about two-thirds in both periods, so the portfolio still spread single-name risk; the point is that the level of risk it could not diversify away rose sharply, exactly as correlations rose.
+Rising correlations cut the benefit of diversification when it is needed most. Graph K compares the portfolio VaR with the sum of the stand-alone VaRs of its components; the gap between them is the diversification benefit. In absolute terms the portfolio's own VaR roughly tripled from the calm period to the crisis. The ratio of portfolio VaR to the summed stand-alone VaRs was `r sprintf("%.2f", diversification$portfolio_var[1] / diversification$sum_standalone[1])` before the crisis and `r sprintf("%.2f", diversification$portfolio_var[2] / diversification$sum_standalone[2])` during it, so the portfolio still spread single-name risk; what changed is that the level of risk it could not diversify away rose sharply, as correlations rose.
 
 ```{r diversification-fig, fig.cap="Graph K: Portfolio VaR against the sum of stand-alone VaRs"}
 fig("fig_diversification.png")
@@ -276,7 +276,9 @@ The t copula fits best in both periods, by log-likelihood and by AIC, and its ad
 
 A VaR estimated once on calm data failed to describe the risk of the crisis: the static 95% VaR was exceeded `r num("static_violations_hist")` times in `r num("static_backtest_n")` days, more than four times the rate it allows. Re-estimating volatility daily, with EWMA, a GARCH(1,1)-t model or filtered historical simulation, roughly halved the exceptions and kept the 99% VaR out of the Basel red zone, though no method passed cleanly. A stressed VaR calibrated to the worst year of the sample is about `r sprintf("%.1f", num("stressed_ratio_95"))` times the pre-crisis figure, which is the capital a backward-looking charge would have missed.
 
-The crisis also raised the average correlation between the stocks, from `r sprintf("%.2f", num("avg_corr_all_before"))` to `r sprintf("%.2f", num("avg_corr_all_during"))`, so the portfolio's undiversifiable risk grew when diversification was most wanted. The dependence among the financial stocks was heaviest in the joint lower tail, which the t copula captures and the Gaussian copula does not. For a portfolio of this kind, a risk model should update its volatility, allow for fat tails, and model tail dependence directly. Because the study covers one episode, its numbers should not be read as forecasts, but the direction of the results is the standard lesson of the crisis.
+The crisis also raised the average correlation between the stocks, from `r sprintf("%.2f", num("avg_corr_all_before"))` to `r sprintf("%.2f", num("avg_corr_all_during"))`, so the portfolio's undiversifiable risk grew when diversification was most wanted. The dependence among the financial stocks was heaviest in the joint lower tail, which the t copula captures and the Gaussian copula does not. For a portfolio of this kind, a risk model should update its volatility, allow for fat tails, and model tail dependence directly.
+
+Two limits temper these numbers. The ten stocks are a fixed set chosen with hindsight, all of which survived the crisis; the four financials are survivors, two of them only through public support, while the defining failures, Lehman Brothers and Bear Stearns, are discussed in Section 2 but are not in the portfolio, so the crisis tail risk and the bank tail dependence measured here are if anything understated. And because the study covers a single episode, its numbers should not be read as forecasts, though the direction of the results is the standard lesson of the crisis.
 
 # References
 

@@ -64,7 +64,9 @@ es_normal <- function(returns, alpha) {
 #' RiskMetrics EWMA one-day-ahead volatility forecast series.
 #'
 #' Returns sigma[t], the forecast of day t's volatility made at t-1, from
-#' sigma2[t] = lambda * sigma2[t-1] + (1 - lambda) * r2[t-1].
+#' sigma2[t] = lambda * sigma2[t-1] + (1 - lambda) * r2[t-1]. The recursion is
+#' seeded with the first squared return, so every forecast uses only past data;
+#' the seed decays out long before the 250-day evaluation window begins.
 #'
 #' @param returns Numeric return series.
 #' @param lambda Decay factor (0.94 for daily RiskMetrics).
@@ -73,7 +75,7 @@ ewma_volatility <- function(returns, lambda = 0.94) {
   r <- as.numeric(returns)
   n <- length(r)
   sigma2 <- numeric(n)
-  sigma2[1] <- stats::var(r)
+  sigma2[1] <- r[1]^2
   for (t in 2:n) {
     sigma2[t] <- lambda * sigma2[t - 1] + (1 - lambda) * r[t - 1]^2
   }

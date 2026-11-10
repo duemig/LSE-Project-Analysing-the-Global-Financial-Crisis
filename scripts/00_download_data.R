@@ -44,16 +44,12 @@ fetch_one <- function(symbol, from, to, tries = 3L) {
   stop(sprintf("Could not download %s after %d attempts.", symbol, tries))
 }
 
-adjusted_list <- list()
 close_list <- list()
 for (symbol in tickers) {
   message("Downloading ", symbol)
   series <- fetch_one(symbol, from_date, to_date)
-  adjusted <- Ad(series)
   close <- Cl(series)
-  colnames(adjusted) <- symbol
   colnames(close) <- symbol
-  adjusted_list[[symbol]] <- adjusted
   close_list[[symbol]] <- close
   Sys.sleep(1)
 }
@@ -62,7 +58,6 @@ merge_wide <- function(series_list) {
   Reduce(function(left, right) merge(left, right, join = "outer"), series_list)
 }
 
-adjusted_wide <- merge_wide(adjusted_list)
 close_wide <- merge_wide(close_list)
 
 write_wide <- function(series, path) {
@@ -72,7 +67,6 @@ write_wide <- function(series, path) {
   message("Wrote ", path, " (", nrow(frame), " rows)")
 }
 
-write_wide(adjusted_wide, file.path(data_dir, "prices_public.csv"))
 write_wide(close_wide, file.path(data_dir, "prices_public_close.csv"))
 
 info <- c(
@@ -81,11 +75,10 @@ info <- c(
   paste("Range requested:", from_date, "to", to_date),
   paste("Tickers:", paste(tickers, collapse = ", ")),
   "",
-  "prices_public.csv      split- and dividend-adjusted close (total-return basis).",
-  "prices_public_close.csv split-adjusted close, not dividend-adjusted.",
-  "",
-  "Citigroup trades under ticker C. Adjusted levels reflect its 2011 reverse",
-  "split, which does not affect daily returns."
+  "prices_public_close.csv: split-adjusted close (not dividend-adjusted), the",
+  "price basis of the original study. Dividends do not affect the daily-return",
+  "VaR conclusions. Citigroup trades under ticker C; its levels reflect the 2011",
+  "reverse split, which does not affect daily returns."
 )
 writeLines(info, file.path(data_dir, "DOWNLOAD_INFO.txt"))
 message("Done.")

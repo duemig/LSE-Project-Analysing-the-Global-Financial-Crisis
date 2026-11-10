@@ -158,7 +158,7 @@ plot_diversification <- function(div) {
     study_theme()
 }
 
-#' Correlation heatmap for one period (Graph D / E).
+#' Correlation heatmap of the stock log returns for one period.
 plot_correlation_heatmap <- function(returns) {
   GGally::ggcorr(as.data.frame(returns), palette = "RdYlBu", name = "rho",
                  label = TRUE, label_size = 2.6, label_round = 2,
@@ -167,7 +167,7 @@ plot_correlation_heatmap <- function(returns) {
     ggplot2::theme(panel.grid.major = ggplot2::element_blank())
 }
 
-#' Scatter-matrix of the financial stocks' pseudo-observations (Graph F).
+#' Scatter-matrix of the financial stocks' pseudo-observations.
 plot_financial_pairs <- function(pseudo_obs) {
   GGally::ggpairs(as.data.frame(pseudo_obs),
                   upper = list(continuous = GGally::wrap("cor", size = 3)),

@@ -244,7 +244,7 @@ key[["div_benefit_before"]] <- div_before$diversification_benefit
 key[["div_benefit_during"]] <- div_during$diversification_benefit
 
 div_roll <- rolling_diversification(returns, portfolio, window = 250, alpha = 0.05)
-roll_corr <- rolling_average_correlation(log_ret[, financials], width = 60)
+roll_corr <- rolling_average_correlation(log_ret, width = 60)
 
 # ---- key numbers -----------------------------------------------------------
 key_frame <- data.frame(name = names(key),

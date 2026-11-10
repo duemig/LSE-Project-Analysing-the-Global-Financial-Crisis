@@ -39,6 +39,10 @@ Re-estimating volatility every day cut the exceptions by about half. At 99%, whe
 
 The average pairwise correlation across the ten stocks rose from 0.48 before the crisis to 0.56 during it, so the portfolio's undiversifiable risk grew when diversification was most wanted. The t copula fits the dependence between the financials best in both periods, and its advantage widens in the crisis (log-likelihood 642.6 against 588.8 for the Gaussian copula). Its fitted degrees of freedom fall from 6.7 to 5.1 and its tail-dependence coefficient rises to 0.42: the banks' losses arrived together, in the joint tail that a correlation matrix or a Gaussian model cannot see.
 
+## Limitations
+
+The ten stocks are a fixed set chosen with hindsight, and the four financials are the banks that survived, two of them only through public support; the defining failures of the crisis, Lehman Brothers and Bear Stearns, are not in the portfolio. The crisis tail risk and bank tail dependence measured here are therefore, if anything, understated, and the study covers a single episode, so its numbers are not forecasts.
+
 ## Reproducing
 
 The analysis runs in R. Install the packages in `DESCRIPTION` (`xts`, `zoo`, `PerformanceAnalytics`, `copula`, `ggplot2`, `GGally`, `scales`, and `quantmod` for the download; `rmarkdown` and `knitr` for the report). Then, from the repository root:

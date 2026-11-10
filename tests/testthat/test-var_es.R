@@ -81,3 +81,20 @@ test_that("rolling_var_es has consistent shapes and positive VaR", {
   expect_false(anyNA(roll$var))
   expect_true(all(roll$var > 0))
 })
+
+test_that("rolling forecasts use no future returns", {
+  set.seed(13)
+  dates <- as.Date("2015-01-01") + 0:399
+  pf <- xts::xts(rnorm(400, 0, 0.012), order.by = dates)
+  colnames(pf) <- "portfolio"
+  methods <- c("historical", "normal", "ewma", "garch_t", "fhs")
+  base <- rolling_var_es(pf, window = 250, alpha = 0.05, methods = methods,
+                         refit_every = 25L)
+  shocked_returns <- pf
+  shocked_returns[380] <- as.numeric(shocked_returns[380]) - 0.05
+  shocked <- rolling_var_es(shocked_returns, window = 250, alpha = 0.05,
+                            methods = methods, refit_every = 25L)
+  before <- base$dates < zoo::index(pf)[380]
+  expect_equal(base$var[before, ], shocked$var[before, ], tolerance = 1e-12)
+  expect_equal(base$es[before, ], shocked$es[before, ], tolerance = 1e-12)
+})
